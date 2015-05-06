@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Weatheregg</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="css/style.css" rel="stylesheet" type="text/css" />
+<link href="css/shadowbox.css" rel="stylesheet" type="text/css" />
+<style type="text/css">
+        #basicMap {
+            width: 100%;
+            height: 99%;
+            border: 1px solid black;
+        }
+</style>
+<script language="javascript" src="js/html5.js"></script>
+<script language="javascript" src="js/jquery-1.10.2.js"></script>
+<script src="http://openlayers.org/api/OpenLayers.js"></script>
+<script src="http://openweathermap.org/js/OWM.OpenLayers.1.3.4.js" ></script>
+<script src="js/highcharts.js"></script>
+<script src="js/highcharts-more.js"></script>
+<script type="text/javascript" src="js/suncalc-min.js"></script>
+<script src="js/shadowbox.js"></script>
+<script type="text/javascript">
+Shadowbox.init({
+    handleOversize: "drag",
+    modal: true,
+    players:  ['img', 'html', 'iframe', 'qt', 'wmp', 'swf', 'flv'],
+    slideshowDelay: "4",
+    continuous: "true"
+});
+</script>
+<script type="text/javascript">
+function init() {
+  var options = {
+  enableHighAccuracy: true,
+  timeout: 1000,
+  maximumAge: 0
+};
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(success,error,options);
+  } else {
+    error('Geo Location is not supported');
+  }
+}
+
+function error(err){
+  success(err);
+  showForecastSmall(err);
+  showHourlyForecastChart(err);
+  showinfo(err);
+  //console.warn('ERROR(' + err.code + '): ' + err.message);
+}
+
+function success(position){
+	showForecastSmall(position);
+	showHourlyForecastChart(position);
+  showinfo(position);		
+	//Center of map	
+	if(position.coords){
+    var lat = position.coords.latitude; 
+    var lon = position.coords.longitude;
+  }else{
+    var lat = 51.50853; 
+    var lon = -0.12574;  
+  } 		
+	var jsonurl = 'http://api.openweathermap.org/data/2.5/forecast/daily?lat='+lat+'&lon='+lon+'&cnt=10&mode=json&units=metric';   
+	$.getJSON(jsonurl, getSearchData1).error(errorHandler1);
+  return false; 
+}
+
+function showinfo(position){
+  if(position.coords){
+    var lat = position.coords.latitude; 
+    var lon = position.coords.longitude;
+  }else{
+    var lat = 51.50853; 
+    var lon = -0.12574;  
+  }  
+  var jsonurl = 'http://api.openweathermap.org/data/2.5/weather?lat='+lat+'&lon='+lon+'&units=metric';   
+  $.getJSON(jsonurl, showcityinfo).error(errorHandler1);
+}
+
+function showcityinfo(JSONobject){
+  var time_zone = 1000 * (new Date().getTimezoneOffset())*(-60);
+  var name = 'Your Current Location : '+JSONobject.name +', '+JSONobject.sys.country;
+  var temp = JSONobject.main.temp;
+  var tmin = JSONobject.main.temp_min;
+  var tmax = JSONobject.main.temp_max;
+  var text = JSONobject.weather[0].description;
+  var img  =  "http://openweathermap.org/img/w/" +JSONobject.weather[0].icon + ".png";
+  var flag = "http://openweathermap.org/images/flags/" +JSONobject.sys.country.toLowerCase()  + ".png";
+  var gust = JSONobject.wind.speed;
+  var pressure = JSONobject.main.pressure ;
+  var cloud=JSONobject.clouds.all ;
+  var sr = new Date(JSONobject.sys.sunrise * 1000 + time_zone);
+  var ss = new Date(JSONobject.sys.sunset * 1000 + time_zone); 
+  var times = SunCalc.getTimes(new Date(), 17.38, 78.47); 
+  var sunrise = times.sunrise.getHours() + ':' + times.sunrise.getMinutes();
+  var sunset=times.sunset.getHours() + ':' + times.sunset.getMinutes();
+  html='';
+  html+=' <div style="float: left; padding: 10px 0px; width: 100%;"><p><b>'+ name+'</b>'+
+    ' <img src="'+flag+'" > <br> <b> </b></p><div style="float:left;"><img src="'+img+'"></div>' + 
+    '<p style="margin-top: 16px;">  <span class="badge badge-info">'+temp +'&deg;С </span> </p><i style="display: block; clear: both;">' +text+'</i></div>';
+    //html+=''+html+'';
+    html+='<table class="table table-striped table-bordered table-condensed">'+
+      '<tbody>'+
+        '<tr><td>Wind</td><td>' +JSONobject.wind.speed+' m/s </td></tr>'+        
+        '<tr><td>Pressure</td><td>'+JSONobject.main.pressure+ 'hpa</td></tr>'+
+        '<tr><td>Humidity</td><td>'+JSONobject.main.humidity+ '%</td></tr>'+
+        '<tr><td>sunrise</td><td id="sunrise">'+sunrise+'</td></tr>'+
+        '<tr><td>sunset</td><td id="sunset">'+sunset+'</td></tr>'+
+      '</tbody>'+
+    '</table>';
+  jQuery("#show_info").html(html);
+
+}
+
+function getSearchData1(JSONobject) {
+	city = JSONobject.list;
+	if( city.length == 0 ) {
+	    ShowAlertMess( 'not found' );
+	    return;
+	}
+
+	html = '';
+	var time_zone = 1000 * (new Date().getTimezoneOffset())*(-60);
+	var month = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Avg", "Sen", "Oct", "Nov","Dec"];
+	
+  	for(var i = 0; i <  JSONobject.list.length; i ++) {    
+    	var dt    = new Date(JSONobject.list[i].dt * 1000 + time_zone);
+    	var day   = dt.getDate() +' '+ month[dt.getMonth()];
+    	var temp  = Math.round(10*(JSONobject.list[i].temp.day))/10 ;
+    	var eve   = Math.round(10*(JSONobject.list[i].temp.eve))/10 ;
+    	var morn  = Math.round(10*(JSONobject.list[i].temp.morn))/10 ;
+    	var night = Math.round(10*(JSONobject.list[i].temp.night))/10 ;
+    	var icon  = JSONobject.list[i].weather[0].icon;
+    	var text  = JSONobject.list[i].weather[0].description;
+    	html += '<tr class="forecast_weather"><td colspan="2"><table><tr>';		
+
+    	html += '<td valign="top" style="padding:5px;">' + day + '<br> <img src="http://openweathermap.org/img/w/'+icon+'.png" ></td><td>';
+    	if(temp>0) 	html += '<span class="badge badge-warning">';
+    	else		html += '<span class="badge badge-info">';
+    	html += temp +'°C </span>&nbsp<span class="badge badge">' + night + 
+    	'°C </span> &nbsp&nbsp <p style="padding:10px 0;">  sky is clear: '+JSONobject.list[i].clouds + '%, ' +
+    	JSONobject.list[i].pressure+' hpa</p></td></tr></table></td></tr>';
+  }	
+
+  	html='<table class="table" width="100%" border=0 cellspacing=0>'+html+'</table>';  	
+	  jQuery("#show_forecast_list").html(html);
+}
+
+function close_weather(id) {
+	$('#'+id).hide();
+}
+function errorHandler1(){
+}
+</script>
+<script type="text/javascript">
+
+var time_zone = 1000 * (new Date().getTimezoneOffset())*(-60);
+function showHourlyForecastChart(position)
+{
+	if(position.coords){
+    var lat = position.coords.latitude; 
+    var lon = position.coords.longitude;
+  }else{
+    var lat = 51.50853; 
+    var lon = -0.12574;  
+  } 	
+	var jsonurl = 'http://api.openweathermap.org/data/2.5/forecast?lat='+lat+'&lon='+lon+'&units=metric';   
+	$.getJSON(jsonurl, showHourlyForecastChart1).error(errorHandler1);
+}
+function showHourlyForecastChart1(JSONobject) {
+ 	var curdate = new Date( (new Date()).getTime()- 180 * 60 * 1000 );
+	var cnt=0;
+	var time = new Array();
+	var tmp  = new Array();
+ 	var wind = new Array();
+	var prcp = new Array();	
+	for(var i = 0; i <  JSONobject.list.length; i ++) {
+		var dt = new Date(JSONobject.list[i].dt * 1000);	
+		if( curdate  > dt )	continue;
+		if(cnt > 10)		break;
+		cnt++;
+
+		tmp.push( Math.round(10*(JSONobject.list[i].main.temp))/10  );
+		time.push( new Date( JSONobject.list[i].dt * 1000 + time_zone) );
+		wind.push(JSONobject.list[i].speed);
+
+		var p=0;
+		if(JSONobject.list[i]['rain'] && JSONobject.list[i]['rain']['3h'])	p += JSONobject.list[i]['rain']['3h'];
+		if(JSONobject.list[i]['snow'] && JSONobject.list[i]['snow']['3h'])	p += JSONobject.list[i]['snow']['3h'];
+		prcp.push( Math.round( p * 10 ) / 10 );
+	}
+
+	$('#chart_small').highcharts({
+            chart: {
+                zoomType: 'xy',
+		height:'250'
+            },
+            title: NaN,
+
+            xAxis: {
+                categories: time,
+                type: 'datetime',
+				labels: {
+				    formatter: function() {
+						return Highcharts.dateFormat('%H:%M', this.value);
+				    }				    
+            	}
+            },
+            yAxis: [
+            {
+                labels: {
+                    format: '{value}°C',
+                    style: {
+                        color: 'blue'
+                    }
+                },
+                opposite: true, 
+                title:NaN
+            },{
+                labels: {
+                    format: '{value}mm',
+                    style: {
+                        color: '#4572A7'
+                    }
+                },
+                opposite: true,            	
+                title: NaN
+            }],
+            tooltip: {
+            	useHTML: true,
+                shared: true,                
+                formatter: function() {
+ 					var s = '<small>'+ Highcharts.dateFormat('%d %b. %H:%M', this.x) +'</small><table>';
+                	$.each(this.points, function(i, point) {
+                    		s += '<tr><td style="color:'+point.series.color+'">'+ point.series.name +': </td>'+
+                        	'<td style="text-align: right"><b>'+point.y +'</b></td></tr>';
+                	});
+                	return s+'</table>';
+				}
+            },
+			legend: {
+                layout: 'vertical',
+                align: 'left',
+                x: 410,
+                verticalAlign: 'top',
+                y: 0,
+                floating: true,
+                backgroundColor: '#FFFFFF'
+            }, 
+            series: [
+            {
+                name: 'Precipitation',
+				type: 'column',   
+				color: '#A0A0A0',      
+				yAxis: 1,
+                data: prcp
+            },{
+                name: 'Temperature',
+				type: 'spline',
+				color: 'blue',
+                data: tmp
+            }]
+        });
+
+
+};
+
+
+function showForecastSmall(position) {
+	if(position.coords){
+    var lat = position.coords.latitude; 
+    var lon = position.coords.longitude;
+  }else{
+    var lat = 51.50853; 
+    var lon = -0.12574;  
+  }	
+	var jsonurl = 'http://api.openweathermap.org/data/2.5/forecast?lat='+lat+'&lon='+lon+'&units=metric';   
+	$.getJSON(jsonurl, showForecastSmall1).error(errorHandler1);	
+}
+
+function showForecastSmall1(JSONobject) {
+ 	var curdate = new Date( (new Date()).getTime()- 180 * 60 * 1000 );
+	var html = ''
+	var cnt=0;
+	//for(var i = 0; i <  forecast.length ; i ++){
+	for(var i = 0; i <  JSONobject.list.length; i ++) {
+		var dt = new Date(JSONobject.list[i].dt * 1000);	
+		if( curdate  > dt )	continue;
+		if(cnt > 10)		break;
+		cnt++;
+
+		var temp = Math.round(10*(JSONobject.list[i].main.temp))/10 ;
+		var tmin = Math.round(10*(JSONobject.list[i].main.temp_min)) / 10;
+		var tmax = Math.round(10*(JSONobject.list[i].main.temp_max)) / 10 ;
+
+		var text = JSONobject.list[i].weather[0].description;
+		var gust = JSONobject.list[i].wind.speed;
+		var pressure = JSONobject.list[i].main.pressure ;
+		var cloud=JSONobject.list[i].clouds.all ;	
+		var icon = JSONobject.list[i].weather[0].icon;
+
+		if( JSONobject.list[i].sys.pod == 'd' )
+			html=html+ '<div style="float: left; text-align: center;" >';
+		else
+			html=html+ '<div style="float: left; text-align: center; background-color:#eeeeee" >';
+
+		html=html+ '<img alt="'+text+'" src="http://openweathermap.org/img/w/'+icon+'.png"/>\
+		<div class="small_val" title="Wind">'+JSONobject.list[i].wind.speed+'m/s</div>\
+		<div class="small_val_grey" title="Pressure">'+JSONobject.list[i].main.pressure+'</div>\
+		</div>';
+	}
+
+	 $("#forecast_small").html(html);
+
+};
+</script>
+
+</head>
+
+<body onload="init()">
+<div class="container">
+  <header> <a href="./index.html" title="News Slider" class="logo"><img src="images/logo.png" alt=""></a>
+    <div class="topbanner"><img src="images/topbanner.jpg" alt=""></div>
+    <span class="clear"></span> </header>
+  <!-- header end --> 
+</div>
+<nav>
+  <div class="container">
+    <div class="navcontainer">
+      <div class="menu"> <span>MENU</span>
+        <ul class="Navigation">
+          <li class="active"> <a href="/" title="Home!">Home</a> </li>
+          <!--<li><a href="#" title="Weather Data">WEATHER DATA</a></li>-->
+          <li><a href="/weather_map" title="Weather Map">WEATHER MAP</a></li>
+          <li><a href="/weather_forecast" title="Weather Forecast">WEATHER FORECAST</a></li>
+          <li><a href="/about" title="Live">ABOUT US</a></li>
+          <li><a href="#" title="Live">CONTACT US</a></li>
+        </ul>
+      </div>
+      <!-- menu end --> 
+    </div>
+    <span class="clear"></span> </div>
+</nav>
+<!-- nav end -->
+
+<div class="container">
+  <section class="contentarea">
+    <aside class="leftcontent">
+      <div class="graph graph_loder"> 
+	<!--<img src="images/slideshow-img.jpg" alt="">-->
+	<div id="chart_small"></div>
+	<div id="forecast_small"></div>
+      </div>
+      <!-- graph end --> 
+	<div id="show_forecast_list" class="fore_cast margin20_T"></div>
+	<div class="module">
+        <div class="module-title InTheNews">In The News</div>
+        <div>
+          <div class="NewsDiv">
+            <div class="thumbdiv"><img src="images/sun-cloud-rain.jpg" alt=""></div>
+            <div class="description">Glasgow<br>
+              United Kingdom<br>
+              <br>
+              5  0c<br>
+              Patchy light rain</div>
+          </div>
+          <!-- NewsDiv end -->
+          <div class="NewsDiv">
+            <div class="thumbdiv"><img src="images/sun-cloud.jpg" alt=""></div>
+            <div class="description">Pretoria<br>
+              Gauteng, south<br>
+              Africa<br>
+              <br>
+              21  0c<br>
+              Partly cloudy</div>
+          </div>
+          <!-- NewsDiv end -->
+          <div class="NewsDiv">
+            <div class="thumbdiv"><img src="images/cloud.jpg" alt=""></div>
+            <div class="description"> Kiev<br>
+              kyyivs'ka oblast;<br>
+              ukraine<br>
+              <br>
+              -4  0c<br>
+              mist </div>
+          </div>
+          <!-- NewsDiv end --> </div>
+        <span class="clear"></span> </div>
+      <!-- US News module end -->
+    </aside>
+    <aside class="sidebar">      
+        <div id="show_info" class="graph graph_loder"></div><br>
+         <span class="clear"></span>
+      <div class="rightad"><img src="images/right-ad1.jpg" alt=""></div>
+	<div>
+        <div class="rightad margin20_T"><img src="images/right-ad2.jpg" alt=""></div>
+        <div class="module WeatherGal">
+        <div class="module-title">Weather Gallery</div>
+        <a href="images/w-g-01.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-01.jpg" alt="" /></a>
+        <a href="images/w-g-02.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-02.jpg" alt="" /></a>
+        <a href="images/w-g-03.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-03.jpg" alt="" /></a>
+        <a href="images/w-g-04.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-04.jpg" alt="" /></a>
+        <a href="images/w-g-05.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-05.jpg" alt="" /></a>
+        <a href="images/w-g-06.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-06.jpg" alt="" /></a>
+        <a href="images/w-g-07.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-07.jpg" alt="" /></a>
+        <a href="images/w-g-08.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-08.jpg" alt="" /></a>
+        <a href="images/w-g-09.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-09.jpg" alt="" /></a>
+        <a href="images/w-g-10.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-10.jpg" alt="" /></a>
+        <a href="images/w-g-11.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-11.jpg" alt="" /></a>
+        <a href="images/w-g-12.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-12.jpg" alt="" /></a>
+        <a href="images/w-g-13.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-13.jpg" alt="" /></a>
+        <a href="images/w-g-14.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-14.jpg" alt="" /></a>
+        <a href="images/w-g-15.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-15.jpg" alt="" /></a>
+        <a href="images/w-g-16.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-16.jpg" alt="" /></a>
+        <a href="images/w-g-17.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-17.jpg" alt="" /></a>
+        <a href="images/w-g-18.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-03.jpg" alt="" /></a>
+        <a href="images/w-g-19.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-19.jpg" alt="" /></a>
+        <a href="images/w-g-20.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-20.jpg" alt="" /></a>
+        <a href="images/w-g-21.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-21.jpg" alt="" /></a>
+        <a href="images/w-g-22.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-22.jpg" alt="" /></a>
+        <a href="images/w-g-23.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-23.jpg" alt="" /></a>
+        <a href="images/w-g-24.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-24.jpg" alt="" /></a>
+        <a href="images/w-g-25.jpg" rel="shadowbox[weathergallery]" "player=img"><img src="images/w-g-25.jpg" alt="" /></a>
+         <span class="clear"></span> </div>
+      <!-- Weather Gallery module end -->  
+	  
+	  <div class="FieldLeft">
+          <div class="twitter-cont">
+            <p><img src="images/small-thumb1.jpg"></p>
+            <p><strong class="blue">Rob Fee@</strong>robfee</p>
+            <p>I wish every episode of Breaking Bad started with the cast playing in a fountain like on Friends.</p>
+          </div>
+          
+          <div class="twitter-cont">
+            <p><img src="images/small-thumb1.jpg"></p>
+            <p><strong class="blue">Rob Fee@</strong>robfee</p>
+            <p>I wish every episode of Breaking Bad started with the cast playing in a fountain like on Friends.</p>
+          </div>
+        </div>
+	  
+        <div class="twitterAdd"><img src="images/ad-160x600.jpg" alt=""></div>
+      </div>
+    </aside>
+  </section>
+  <span class="clear"></span>
+  <span class="clear"></span>
+  <section class="contentarea">
+    <aside class="leftcontent">
+    </aside>
+    <aside class="sidebar">
+    </aside>
+    <span class="clear"></span>
+    <div class="bottom">
+      <div class="ad1"><img src="images/ad1.jpg" alt=""></div>
+    </div>
+  </section>
+</div>
+</div>
+<!-- container end -->
+
+<footer>
+  <div class="container">
+    <summary>Copyright &copy;  2013-14  Weatheregg.com. All Rights Reserved. | <a href=/termsandconditions>Terms & Conditions</a></summary>
+  </div>
+  <!-- container end --> 
+</footer>
+<!-- footer end -->
+</body>
+</html>
