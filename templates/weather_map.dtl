@@ -469,9 +469,9 @@ function showForecastSmall1(JSONobject){
     <div class="navcontainer">
       <div class="menu"> <span>MENU</span>
         <ul class="Navigation">
-          <li class="active"> <a href="/" title="Home!">Home</a> </li>
+          <li> <a href="/" title="Home!">Home</a> </li>
           <!--<li><a href="#" title="Weather Data">WEATHER DATA</a></li>-->
-          <li><a href="/weather_map" title="Weather Map">WEATHER MAP</a></li>
+          <li class="active"><a href="/weather_map" title="Weather Map">WEATHER MAP</a></li>
           <li><a href="/weather_forecast" title="Weather Forecast">WEATHER FORECAST</a></li>
           <li><a href="/about" title="Live">ABOUT US</a></li>
           <li><a href="#" title="Live">CONTACT US</a></li>
