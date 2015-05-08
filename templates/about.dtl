@@ -29,7 +29,7 @@ Shadowbox.init({
 </head>
 <body onload="init()">
 <div class="container">
-  <header> <a href="index.html" title="Weatheregg" class="logo"><img src="images/logo.png" alt=""></a>
+  <header> <a href="/" title="Weatheregg" class="logo"><img src="images/logo.png" alt=""></a>
     <div class="topbanner"><img src="images/topbanner.jpg" alt=""></div>
     <span class="clear"></span> </header>
   <!-- header end --> 
